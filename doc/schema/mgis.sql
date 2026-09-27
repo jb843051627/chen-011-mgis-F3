@@ -71,21 +71,66 @@ CREATE TABLE IF NOT EXISTS t_mgis_scope_card (
   PRIMARY KEY (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='作业范围标签建档卡';
 
-CREATE TABLE IF NOT EXISTS t_mgis_submit_row (
+CREATE TABLE IF NOT EXISTS t_mgis_catalog_booklet (
   id bigint NOT NULL COMMENT '主键',
-  batch_no varchar(64) DEFAULT NULL COMMENT '成果目录汇交册号',
-  row_no int DEFAULT NULL COMMENT '原册内行次',
-  item_code varchar(64) DEFAULT NULL COMMENT '图幅成果代号',
-  qty decimal(12,2) DEFAULT NULL COMMENT '本行填报图幅幅数(幅)',
-  status int DEFAULT NULL COMMENT '行进展 0待销 1已入账 2挂驳回',
-  del_flag int DEFAULT '0' COMMENT '删除标记 0正常 1删除',
+  booklet_no varchar(64) NOT NULL COMMENT '图幅目录册号(同号只认头一遍)',
+  region varchar(128) NOT NULL COMMENT '属地名址(整本一册一地,以封面为准)',
+  total_rows int NOT NULL COMMENT '表上总行数(含挂着的那几行)',
+  hanging_count int NOT NULL DEFAULT '0' COMMENT '挂着几行',
+  accepted_count int NOT NULL DEFAULT '0' COMMENT '进账几行(好行;挂着加入账=总行数)',
+  posted_count int NOT NULL DEFAULT '0' COMMENT '进账总账条数(同册同代号并一条后)',
+  accepted_qty decimal(18,2) NOT NULL DEFAULT '0.00' COMMENT '进账总幅数(重号只加一次)',
+  first_submit_by varchar(64) NOT NULL COMMENT '头一遍递送经办',
+  first_submit_at datetime NOT NULL COMMENT '头一遍核收时刻',
   create_by varchar(64) DEFAULT NULL COMMENT '创建者',
   create_time datetime DEFAULT NULL COMMENT '创建时间',
   update_by varchar(64) DEFAULT NULL COMMENT '更新者',
   update_time datetime DEFAULT NULL COMMENT '更新时间',
   remark varchar(500) DEFAULT NULL COMMENT '备注',
-  PRIMARY KEY (id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='成果目录汇交核收行';
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_catalog_booklet_no (booklet_no),
+  KEY idx_catalog_booklet_region (region)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='年度图幅目录册核收册头';
+
+CREATE TABLE IF NOT EXISTS t_mgis_catalog_line (
+  id bigint NOT NULL COMMENT '主键',
+  booklet_id bigint NOT NULL COMMENT '册头主键',
+  row_no int NOT NULL COMMENT '原表行次(从1连排)',
+  item_code varchar(64) NOT NULL COMMENT '图幅代号',
+  prod_type varchar(32) NOT NULL COMMENT '成果类别',
+  region varchar(128) NOT NULL COMMENT '属地名址',
+  qty decimal(18,2) DEFAULT NULL COMMENT '本行所报幅数(挂着的存原值)',
+  outcome varchar(16) NOT NULL COMMENT '行结局 POSTED进账 MERGED并入前一条 HUNG挂着',
+  reason varchar(500) DEFAULT NULL COMMENT '挂账缘故(只写头一遍)',
+  ledger_id bigint DEFAULT NULL COMMENT '并入的总账主键',
+  create_by varchar(64) DEFAULT NULL COMMENT '创建者',
+  create_time datetime DEFAULT NULL COMMENT '创建时间',
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_catalog_line_row (booklet_id, row_no),
+  KEY idx_catalog_line_booklet (booklet_id),
+  KEY idx_catalog_line_code (item_code)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='年度图幅目录册册内行(逐行明细,只增不改)';
+
+CREATE TABLE IF NOT EXISTS t_mgis_catalog_ledger (
+  id bigint NOT NULL COMMENT '主键',
+  booklet_id bigint NOT NULL COMMENT '头一回收进该代号的册头主键',
+  booklet_no varchar(64) NOT NULL COMMENT '头一回收进的册号(快照)',
+  item_code varchar(64) NOT NULL COMMENT '图幅代号(全局一条)',
+  prod_type varchar(32) NOT NULL COMMENT '成果类别',
+  region varchar(128) NOT NULL COMMENT '属地名址',
+  qty decimal(18,2) NOT NULL COMMENT '累计幅数(同册重号只加一次,跨册各报累加)',
+  first_at datetime NOT NULL COMMENT '头一回进账时刻',
+  last_booklet_id bigint DEFAULT NULL COMMENT '最近一次追加的册头主键',
+  last_at datetime DEFAULT NULL COMMENT '最近一次追加时刻',
+  create_by varchar(64) DEFAULT NULL COMMENT '创建者',
+  create_time datetime DEFAULT NULL COMMENT '创建时间',
+  update_by varchar(64) DEFAULT NULL COMMENT '更新者',
+  update_time datetime DEFAULT NULL COMMENT '更新时间',
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_catalog_ledger_code (item_code),
+  KEY idx_catalog_ledger_booklet (booklet_id),
+  KEY idx_catalog_ledger_region (region)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='年度图幅目录进账总账(按图幅代号一条)';
 
 CREATE TABLE IF NOT EXISTS t_mgis_unit_doc (
   id bigint NOT NULL COMMENT '主键',
